@@ -26,7 +26,7 @@ Both commands are intentionally only supported from `magit-status-mode` buffers.
 Install dependencies:
 
 ```sh
-just deps
+just install-deps
 ```
 
 Compile:

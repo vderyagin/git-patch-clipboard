@@ -8,11 +8,11 @@ build: _ensure-eldev-installed
       --keep-going
 
 # install dependencies
-deps: _ensure-eldev-installed
+install-deps: _ensure-eldev-installed
     eldev prepare
 
 # update dependencies
-deps-update: _ensure-eldev-installed
+update-deps: _ensure-eldev-installed
     eldev upgrade
 
 # clean up bytecode
@@ -61,3 +61,38 @@ test pattern='': _ensure-eldev-installed
         echo "Eldev (https://github.com/emacs-eldev/eldev) is not installed"; \
         exit 1; \
     fi
+
+# Check formatting without changing source files.
+@check-format: _ensure-eldev-installed
+    eldev exec "\
+    (progn \
+      (require 'rx) \
+      (require 'seq) \
+      (require 'subr-x) \
+      \
+      (defun format--hidden-path-p (path) \
+        (string-match-p (rx string-start \".\" (+ (not \"/\"))) \
+                        (file-relative-name path default-directory))) \
+      \
+      (defun format--el-files () \
+        (seq-remove \
+         #'format--hidden-path-p \
+         (directory-files-recursively default-directory (rx \".el\" string-end) nil))) \
+      \
+      (let ((inhibit-message t) \
+            (make-backup-files nil) \
+            (files (format--el-files))) \
+        (seq-do #'load-file files) \
+        (seq-do \
+         (lambda (file) \
+           (let ((enable-local-variables nil) \
+                 (enable-local-eval nil)) \
+             (with-current-buffer (find-file-noselect file) \
+               (let ((indent-tabs-mode nil)) \
+                 (indent-region (point-min) (point-max))) \
+               (when (buffer-modified-p) (error \"Formatting differs: %s\" file)) \
+               (kill-buffer (current-buffer))))) \
+         files) \
+        (kill-emacs 0)))"
+
+check: check-format test build
